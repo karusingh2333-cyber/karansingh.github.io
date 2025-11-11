@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Interactive 3D Avatar — Portfolio</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;500;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --bg:#07060a;
+      --muted:#cfd6df;
+    }
+    html,body{height:100%;margin:0;font-family:"Montserrat",system-ui,Arial}
+    body{background:linear-gradient(180deg,#07060a 0%, #0d0d12 100%); color:var(--muted); -webkit-font-smoothing:antialiased;}
+    .wrap{
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:28px;
+      box-sizing:border-box;
+      gap:28px;
+      flex-direction:column;
+    }
+
+    .stage{
+      width:min(920px,92vw);
+      height:min(760px,76vh);
+      max-height:820px;
+      border-radius:18px;
+      overflow:hidden;
+      position:relative;
+      background: radial-gradient(600px 300px at 50% 10%, rgba(0,180,255,0.06), transparent 20%), linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.12));
+      box-shadow: 0 30px 80px rgba(3,7,18,0.7), inset 0 1px 0 rgba(255,255,255,0.02);
+      display:block;
+    }
+
+    /* overlay UI */
+    .ui {
+      position:absolute;
+      left:20px;
+      top:18px;
+      z-index:4;
+      color:#cfe7ff;
+      font-weight:600;
+      font-size:14px;
+      pointer-events:none;
+      display:flex;
+      gap:12px;
+      align-items:center;
+    }
+    .ui .email{opacity:0.85}
+    .ui .nav{margin-left:auto; font-weight:500; opacity:0.9; pointer-events:auto;}
+    .ui a{color:inherit;text-decoration:none;padding:6px 8px;border-radius:6px;background:transparent;opacity:0.85}
+
+    /* caption */
+    .caption{
+      position:absolute;
+      bottom:14px;
+      left:50%;
+      transform:translateX(-50%);
+      z-index:4;
+      color:rgba(255,255,255,0.7);
+      font-size:13px;
+      background:linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      padding:8px 12px;border-radius:999px;
+      backdrop-filter: blur(6px);
+    }
+
+    /* responsive below */
+    @media (max-width:720px){
+      .stage{height:min(68vh,680px);}
+      .ui{left:12px;top:12px; font-size:13px}
+      .caption{font-size:12px}
+    }
+
+    /* helper for footer area below stage */
+    .below{
+      width:min(980px,94vw);
+      display:flex;
+      gap:20px;
+      justify-content:space-between;
+      align-items:center;
+      color:var(--muted);
+      font-size:14px;
+      margin-top:18px;
+    }
+    .btn{
+      background:linear-gradient(90deg,#00b4ff,#3bd5ff);
+      color:#001321;padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:700;
+      box-shadow:0 14px 40px rgba(0,180,255,0.12)
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="stage" id="stage">
+      <div class="ui">
+        <div class="email">example@mail.com</div>
+        <div class="nav"><a href="index.html">HOME</a></div>
+      </div>
+
+      <!-- three.js canvas will be appended here by script -->
+      <div id="canvas-container" style="width:100%;height:100%;"></div>
+
+      <div class="caption">Move your cursor — the avatar follows your face & eyes</div>
+    </div>
+
+    <div class="below">
+      <div>Selected Works — scroll down to see video embeds on the Projects page.</div>
+      <div><a class="btn" href="projects.html">Open Projects</a></div>
+    </div>
+  </div>
+
+  <!-- Three.js from CDN -->
+  <script src="https://unpkg.com/three@0.156.0/build/three.min.js"></script>
+  <script>
+  (function(){
+    // Basic three.js scene setup
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x07060a);
+
+    // renderer
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace; // modern
+    container.appendChild(renderer.domElement);
+
+    // camera
+    const camera = new THREE.PerspectiveCamera(28, 2, 0.1, 2000);
+    camera.position.set(0, 0, 420);
+
+    // lighting
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x222244, 0.8);
+    scene.add(hemi);
+    const key = new THREE.DirectionalLight(0xffffff, 1.1);
+    key.position.set(120, 200, 160);
+    scene.add(key);
+    const rim = new THREE.DirectionalLight(0x66ccff, 0.45);
+    rim.position.set(-200, 120, 100);
+    scene.add(rim);
+
+    // subtle environment-like ambient
+    scene.add(new THREE.AmbientLight(0x303040, 0.35));
+
+    // Group that will represent the head + eyes
+    const root = new THREE.Group();
+    scene.add(root);
+
+    // Create a stylized head (sphere)
+    const headGeom = new THREE.SphereGeometry(140, 64, 64);
+    // slightly flatten vertically
+    headGeom.scale(1, 1.02, 1);
+    const skinMat = new THREE.MeshStandardMaterial({
+      color: 0xffe1c7,
+      metalness: 0.02,
+      roughness: 0.48,
+      clearcoat: 0.08,
+      clearcoatRoughness: 0.25
+    });
+    const head = new THREE.Mesh(headGeom, skinMat);
+    head.position.set(0, -10, 0);
+    root.add(head);
+
+    // Add hair as a hemisphere (simple)
+    const hairGeom = new THREE.SphereGeometry(142, 48, 48, 0, Math.PI*2, 0, Math.PI*0.9);
+    const hairMat = new THREE.MeshStandardMaterial({ color:0x0c2945, metalness:0.02, roughness:0.45 });
+    const hair = new THREE.Mesh(hairGeom, hairMat);
+    hair.scale.set(1.02, 0.9, 1.02);
+    hair.position.set(0, -40, 0);
+    root.add(hair);
+
+    // ears - left and right (small spheres)
+    const earGeom = new THREE.SphereGeometry(18, 24, 24);
+    const earLeft = new THREE.Mesh(earGeom, skinMat);
+    earLeft.position.set(-150, -10, 10);
+    earLeft.scale.set(1,0.9,0.7);
+    root.add(earLeft);
+    const earRight = earLeft.clone();
+    earRight.position.set(150, -10, 10);
+    root.add(earRight);
+
+    // Eyes: whites (sockets) and pupils
+    const eyeWhiteGeom = new THREE.SphereGeometry(22, 32, 32);
+    const eyeWhiteMat = new THREE.MeshStandardMaterial({ color:0xffffff, metalness:0.0, roughness:0.32 });
+    const eyeLeft = new THREE.Mesh(eyeWhiteGeom, eyeWhiteMat);
+    const eyeRight = eyeLeft.clone();
+
+    // Place eyes slightly forward and into head
+    eyeLeft.position.set(-60, 30, 100);
+    eyeRight.position.set(60, 30, 100);
+    root.add(eyeLeft);
+    root.add(eyeRight);
+
+    // Pupils (dark spheres) — parented to small groups for movement limits
+    const pupilGeom = new THREE.SphereGeometry(8.5, 24, 24);
+    const pupilMat = new THREE.MeshStandardMaterial({ color:0x06121a, metalness:0.0, roughness:0.3 });
+    const leftGroup = new THREE.Group();
+    const rightGroup = new THREE.Group();
+    leftGroup.position.copy(eyeLeft.position);
+    rightGroup.position.copy(eyeRight.position);
+    root.add(leftGroup);
+    root.add(rightGroup);
+
+    const pupilLeft = new THREE.Mesh(pupilGeom, pupilMat);
+    const pupilRight = new THREE.Mesh(pupilGeom, pupilMat);
+    // slightly in front of whites
+    pupilLeft.position.set(0, 0, 22);
+    pupilRight.position.set(0, 0, 22);
+    leftGroup.add(pupilLeft);
+    rightGroup.add(pupilRight);
+
+    // subtle glossy highlight on pupils (tiny additive sprite)
+    const highlightMat = new THREE.MeshStandardMaterial({ color:0xffffff, metalness:0.8, roughness:0.05 });
+    const pupilHi = new THREE.Mesh(new THREE.SphereGeometry(1.8,12,12), highlightMat);
+    pupilHi.position.set(-2,2,26); pupilLeft.add(pupilHi);
+    const pupilHi2 = pupilHi.clone(); pupilRight.add(pupilHi2);
+
+    // small mouth line (simple)
+    const mouthGeom = new THREE.TorusGeometry(32, 3.4, 8, 50, Math.PI*0.68);
+    const mouthMat = new THREE.MeshStandardMaterial({ color:0x8a4f38, metalness:0, roughness:0.7 });
+    const mouth = new THREE.Mesh(mouthGeom, mouthMat);
+    mouth.rotation.x = Math.PI*0.48;
+    mouth.position.set(0, -30, 95);
+    root.add(mouth);
+
+    // slight neck / base cylinder
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(68,80,70,40), new THREE.MeshStandardMaterial({color:0xffe1c7, roughness:0.55}));
+    neck.position.set(0,-140,0);
+    root.add(neck);
+
+    // add subtle rim glow using emissive plane behind head (just visual)
+    const rimGeo = new THREE.CircleGeometry(260, 64);
+    const rimMat = new THREE.MeshBasicMaterial({ color: 0x0bbcff, transparent:true, opacity:0.06 });
+    const rim = new THREE.Mesh(rimGeo, rimMat);
+    rim.position.set(0, -60, -260);
+    rim.rotation.x = -0.15;
+    scene.add(rim);
+
+    // set initial sizes & renderer
+    function resize(){
+      const box = container.getBoundingClientRect();
+      renderer.setSize(box.width, box.height);
+      camera.aspect = box.width / box.height;
+      camera.updateProjectionMatrix();
+
+      // adjust camera distance slightly for small screens
+      if(box.width < 520){
+        camera.position.set(0, 0, 360);
+        root.scale.set(0.85,0.85,0.85);
+      } else if(box.width < 820){
+        camera.position.set(0,0,400);
+        root.scale.set(0.95,0.95,0.95);
+      } else {
+        camera.position.set(0,0,420);
+        root.scale.set(1,1,1);
+      }
+    }
+    window.addEventListener('resize', resize, {passive:true});
+    resize();
+
+    // Pointer tracking logic
+    let pointer = { x:0, y:0, active:false };
+    let lastTime = performance.now();
+
+    function onPointerMove(e){
+      pointer.active = true;
+      pointer.x = (e.clientX !== undefined) ? e.clientX : e.touches[0].clientX;
+      pointer.y = (e.clientY !== undefined) ? e.clientY : e.touches[0].clientY;
+    }
+    window.addEventListener('pointermove', onPointerMove, {passive:true});
+    window.addEventListener('touchmove', onPointerMove, {passive:true});
+
+    // Map pointer to normalized -1..1 relative to canvas center
+    function getNormalizedPointer(){
+      const r = container.getBoundingClientRect();
+      const cx = r.left + r.width/2;
+      const cy = r.top + r.height/2;
+      const nx = ((pointer.x || cx) - cx) / (r.width/2); // -1..1
+      const ny = ((pointer.y || cy) - cy) / (r.height/2);
+      return { nx: THREE.MathUtils.clamp(nx, -1, 1), ny: THREE.MathUtils.clamp(ny, -1, 1) };
+    }
+
+    // Animation loop
+    const clock = new THREE.Clock();
+    function animate(){
+      const dt = clock.getDelta();
+      // compute normalized pointer
+      const np = getNormalizedPointer();
+
+      // head rotation: subtle, vary around x (pitch) and y (yaw)
+      const targetRotY = np.nx * 0.18;      // yaw
+      const targetRotX = np.ny * -0.12;     // pitch (invert)
+      // lerp current towards target for smooth motion
+      head.rotation.y += (targetRotY - head.rotation.y) * 0.08;
+      head.rotation.x += (targetRotX - head.rotation.x) * 0.06;
+      hair.rotation.y += (targetRotY - hair.rotation.y) * 0.06;
+      // small counter movement for neck/whole root
+      root.rotation.y += (targetRotY * 0.04 - root.rotation.y) * 0.06;
+
+      // Move pupils: Convert normalized to small offsets in local eye groups
+      // We limit pupil movement to spherical cap by moving groups (local)
+      const maxPupil = 6.8; // px of offset in local space
+      const pupilOffsetX = np.nx * maxPupil * 1.3;
+      const pupilOffsetY = np.ny * -maxPupil * 0.9;
+      leftGroup.position.x += ((eyeLeft.position.x + pupilOffsetX) - leftGroup.position.x) * 0.18;
+      leftGroup.position.y += ((eyeLeft.position.y + pupilOffsetY) - leftGroup.position.y) * 0.12;
+      rightGroup.position.x += ((eyeRight.position.x + pupilOffsetX) - rightGroup.position.x) * 0.18;
+      rightGroup.position.y += ((eyeRight.position.y + pupilOffsetY) - rightGroup.position.y) * 0.12;
+
+      // subtle breathing / idle movement
+      const t = performance.now() * 0.0012;
+      root.position.y += Math.sin(t) * 0.06;
+
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+    animate();
+
+    // Nice: reset pointer when user leaves window
+    window.addEventListener('pointerleave', ()=>{ pointer.x = container.getBoundingClientRect().left + container.clientWidth/2; pointer.y = container.getBoundingClientRect().top + container.clientHeight/2; pointer.active=false; });
+    window.addEventListener('blur', ()=>{ pointer.x = container.getBoundingClientRect().left + container.clientWidth/2; pointer.y = container.getBoundingClientRect().top + container.clientHeight/2; pointer.active=false; });
+
+    // Optional: slow rotate idle if no pointer movement
+    let idleTime = 0;
+    setInterval(()=>{
+      idleTime += 1;
+      if(!pointer.active) {
+        head.rotation.y += 0.002;
+        hair.rotation.y += 0.0018;
+      } else {
+        idleTime = 0;
+      }
+    }, 80);
+
+    // attach the renderer canvas to container initial size adjust
+    resize();
+
+  })();
+  </script>
+</body>
+</html>

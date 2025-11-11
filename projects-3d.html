@@ -157,7 +157,7 @@
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x07060a);
   const camera = new THREE.PerspectiveCamera(28, 2, 0.1, 2000);
-  camera.position.set(0, 0, 420);
+camera.position.set(0, 0, 550); // pehle 420 tha, ab 550
 
   // lights
   const hemi = new THREE.HemisphereLight(0xffffff, 0x222244, 0.9);
@@ -236,12 +236,28 @@
     renderer.setSize(w, h, false);
     camera.aspect = w / h; camera.updateProjectionMatrix();
 
-    if(w < 520){
-      camera.position.set(0,0,360); root.scale.set(0.85,0.85,0.85);
-    } else if(w < 820){
-      camera.position.set(0,0,400); root.scale.set(0.95,0.95,0.95);
-    } else { camera.position.set(0,0,420); root.scale.set(1,1,1); }
+    function resize(){
+  const rect = container.getBoundingClientRect();
+  const w = Math.max(20, Math.floor(rect.width));
+  const h = Math.max(20, Math.floor(rect.height));
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h; 
+  camera.updateProjectionMatrix();
+
+  if(w < 520){
+    camera.position.set(0, 0, 600);
+    root.scale.set(0.7, 0.7, 0.7);
+  } else if(w < 820){
+    camera.position.set(0, 0, 580);
+    root.scale.set(0.8, 0.8, 0.8);
+  } else if(w < 1080){
+    camera.position.set(0, 0, 560);
+    root.scale.set(0.9, 0.9, 0.9);
+  } else {
+    camera.position.set(0, 0, 550);
+    root.scale.set(1, 1, 1);
   }
+}
   window.addEventListener('resize', resize, { passive:true });
   // initial call
   resize();

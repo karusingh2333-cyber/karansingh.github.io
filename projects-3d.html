@@ -1,191 +1,230 @@
-<script src="https://unpkg.com/three@0.156.0/build/three.min.js"></script>
-<script>
-(function(){
-  console.log('[avatar] init');
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Interactive Avatar — Debug Safe</title>
 
-  // check for WebGL
-  const webglCanvas = document.createElement('canvas');
-  const gl = webglCanvas.getContext && (webglCanvas.getContext('webgl') || webglCanvas.getContext('experimental-webgl'));
-  if(!gl){
-    console.error('[avatar] WebGL not available in this browser');
-    const fallback = document.createElement('div');
-    fallback.style.cssText = "width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#aab8c6";
-    fallback.innerHTML = '<div style="text-align:center">WebGL not supported.<br>Try Chrome/Firefox on desktop.</div>';
-    document.getElementById('canvas-container').appendChild(fallback);
-    return;
-  }
-
-  const container = document.getElementById('canvas-container');
-  if(!container){
-    console.error('[avatar] No canvas container found (#canvas-container)');
-    return;
-  }
-
-  // create renderer
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  // safe assignment for outputColorSpace / encoding across versions
-  try{
-    if('outputColorSpace' in renderer) {
-      renderer.outputColorSpace = THREE.SRGBColorSpace;
-    } else if('outputEncoding' in renderer && THREE.sRGBEncoding) {
-      renderer.outputEncoding = THREE.sRGBEncoding;
+  <style>
+    html,body{height:100%;margin:0;font-family:system-ui,Arial;color:#cfd9e6;background:#0b0c10}
+    .wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:18px;gap:14px}
+    .stage{
+      width:min(920px,94vw);
+      height:min(720px,72vh);
+      min-height:400px;
+      border-radius:14px;
+      overflow:hidden;
+      position:relative;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.06));
+      box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+      display:block;
     }
-  }catch(e){ console.warn('[avatar] color-space assignment failed', e); }
+    #canvas-container{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:transparent}
+    .fallback{
+      color:#9fb8d6;
+      text-align:center;
+      padding:18px;
+    }
+    .below{max-width:920px;width:94vw;color:#cbdbe9;text-align:center;font-size:14px}
+    a.btn{background:linear-gradient(90deg,#00b4ff,#3bd5ff);color:#001321;padding:8px 12px;border-radius:8px;text-decoration:none;font-weight:700}
+    /* ensure canvas will show even if default body is white */
+    canvas{display:block; width:100%!important; height:100%!important}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="stage" id="stage">
+      <div id="canvas-container" aria-hidden="true">
+        <!-- canvas will be appended here -->
+        <div class="fallback" id="fallbackMsg" style="display:none">
+          WebGL not available or loading failed.<br>
+          Try Chrome/Firefox on desktop, and check console for errors.
+        </div>
+      </div>
+    </div>
 
-  container.appendChild(renderer.domElement);
+    <div class="below">
+      <div>Interactive avatar — move your cursor. If you see a blank page, open Console (F12) and check errors.</div>
+      <div style="margin-top:10px"><a class="btn" href="projects.html">Open Projects</a></div>
+    </div>
+  </div>
 
-  // scene, camera
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x07060a);
-  const camera = new THREE.PerspectiveCamera(28, 2, 0.1, 2000);
-camera.position.set(0, 0, 550); // thoda peeche le gaya taaki poora character dikhe
+  <!-- Use jsDelivr CDN for Three.js -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.156.1/build/three.min.js"></script>
 
+  <script>
+  (function(){
+    console.log('[safe-avatar] start');
 
-  // lights
-  const hemi = new THREE.HemisphereLight(0xffffff, 0x222244, 0.9);
-  scene.add(hemi);
-  const key = new THREE.DirectionalLight(0xffffff, 1.05);
-  key.position.set(120, 200, 160);
-  scene.add(key);
-  scene.add(new THREE.AmbientLight(0x303040, 0.35));
-  const rim = new THREE.DirectionalLight(0x66ccff, 0.45);
-  rim.position.set(-200,120,100);
-  scene.add(rim);
+    const container = document.getElementById('canvas-container');
+    const fallback = document.getElementById('fallbackMsg');
 
-  // root group
-  const root = new THREE.Group();
-  scene.add(root);
+    // WebGL availability check
+    const testCanvas = document.createElement('canvas');
+    const gl = testCanvas.getContext && (testCanvas.getContext('webgl') || testCanvas.getContext('experimental-webgl'));
+    if(!gl){
+      console.error('[safe-avatar] WebGL not available');
+      fallback.style.display = 'block';
+      return;
+    }
 
-  // safe helpers to build geometry (same as earlier)
-  const headGeom = new THREE.SphereGeometry(140, 48, 48);
-  headGeom.scale(1, 1.02, 1);
-  const skinMat = new THREE.MeshStandardMaterial({ color: 0xffe1c7, metalness:0.02, roughness:0.48, clearcoat:0.08, clearcoatRoughness:0.25 });
-  const head = new THREE.Mesh(headGeom, skinMat);
-  head.position.set(0,-10,0);
-  root.add(head);
+    // create renderer
+    let renderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      // safe color-space handling
+      try {
+        if ('outputColorSpace' in renderer) renderer.outputColorSpace = THREE.SRGBColorSpace;
+        else if ('outputEncoding' in renderer && THREE.sRGBEncoding) renderer.outputEncoding = THREE.sRGBEncoding;
+      } catch(e){ console.warn('[safe-avatar] color-space assign failed', e); }
+      container.appendChild(renderer.domElement);
+    } catch (err) {
+      console.error('[safe-avatar] renderer error', err);
+      fallback.style.display = 'block';
+      return;
+    }
 
-  const hairGeom = new THREE.SphereGeometry(142, 36, 36, 0, Math.PI*2, 0, Math.PI*0.9);
-  const hairMat = new THREE.MeshStandardMaterial({ color:0x0c2945, metalness:0.02, roughness:0.45 });
-  const hair = new THREE.Mesh(hairGeom, hairMat);
-  hair.scale.set(1.02,0.9,1.02);
-  hair.position.set(0,-40,0);
-  root.add(hair);
+    // scene and camera
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x07060a);
+    const camera = new THREE.PerspectiveCamera(30, 2, 0.1, 3000);
+    camera.position.set(0, 0, 550); // safe initial position
 
-  const earGeom = new THREE.SphereGeometry(18, 24, 24);
-  const earLeft = new THREE.Mesh(earGeom, skinMat);
-  earLeft.position.set(-150, -10, 10);
-  earLeft.scale.set(1,0.9,0.7);
-  root.add(earLeft);
-  const earRight = earLeft.clone();
-  earRight.position.set(150, -10, 10);
-  root.add(earRight);
+    // lights
+    const ambient = new THREE.AmbientLight(0xffffff, 0.45);
+    scene.add(ambient);
+    const key = new THREE.DirectionalLight(0xffffff, 1.0);
+    key.position.set(80, 120, 120);
+    scene.add(key);
+    const rim = new THREE.DirectionalLight(0x66ccff, 0.35);
+    rim.position.set(-100, 80, 80);
+    scene.add(rim);
 
-  const eyeWhiteGeom = new THREE.SphereGeometry(22, 28, 28);
-  const eyeWhiteMat = new THREE.MeshStandardMaterial({ color:0xffffff, metalness:0, roughness:0.32 });
-  const eyeLeft = new THREE.Mesh(eyeWhiteGeom, eyeWhiteMat);
-  const eyeRight = eyeLeft.clone();
-  eyeLeft.position.set(-60,30,100);
-  eyeRight.position.set(60,30,100);
-  root.add(eyeLeft); root.add(eyeRight);
+    // root
+    const root = new THREE.Group(); scene.add(root);
 
-  const pupilGeom = new THREE.SphereGeometry(8.5, 20, 20);
-  const pupilMat = new THREE.MeshStandardMaterial({ color:0x06121a, metalness:0, roughness:0.3 });
-  const leftGroup = new THREE.Group(), rightGroup = new THREE.Group();
-  leftGroup.position.copy(eyeLeft.position); rightGroup.position.copy(eyeRight.position);
-  root.add(leftGroup); root.add(rightGroup);
-  const pupilLeft = new THREE.Mesh(pupilGeom, pupilMat);
-  const pupilRight = new THREE.Mesh(pupilGeom, pupilMat);
-  pupilLeft.position.set(0,0,22); pupilRight.position.set(0,0,22);
-  leftGroup.add(pupilLeft); rightGroup.add(pupilRight);
+    // simple head
+    const headGeom = new THREE.SphereGeometry(140, 40, 40);
+    headGeom.scale(1, 1.02, 1);
+    const skinMat = new THREE.MeshStandardMaterial({ color:0xffe1c7, roughness:0.52, metalness:0.02 });
+    const head = new THREE.Mesh(headGeom, skinMat);
+    head.position.set(0, -10, 0);
+    root.add(head);
 
-  const mouth = new THREE.Mesh(new THREE.TorusGeometry(32,3.2,8,40,Math.PI*0.68), new THREE.MeshStandardMaterial({ color:0x8a4f38, roughness:0.72 }));
-  mouth.rotation.x = Math.PI*0.48; mouth.position.set(0,-30,95); root.add(mouth);
+    // hair
+    const hairGeom = new THREE.SphereGeometry(142, 32, 32, 0, Math.PI*2, 0, Math.PI*0.9);
+    const hairMat = new THREE.MeshStandardMaterial({ color:0x0c2a46, roughness:0.45 });
+    const hair = new THREE.Mesh(hairGeom, hairMat);
+    hair.scale.set(1.02, 0.9, 1.02); hair.position.set(0, -40, 0);
+    root.add(hair);
 
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(68,80,70,28), new THREE.MeshStandardMaterial({ color:0xffe1c7, roughness:0.55 }));
-  neck.position.set(0,-140,0); root.add(neck);
+    // eyes (white spheres)
+    const eyeWhite = new THREE.SphereGeometry(22, 24, 24);
+    const eyeMat = new THREE.MeshStandardMaterial({ color:0xffffff, roughness:0.26 });
+    const eyeL = new THREE.Mesh(eyeWhite, eyeMat); const eyeR = new THREE.Mesh(eyeWhite, eyeMat);
+    eyeL.position.set(-60, 30, 100); eyeR.position.set(60, 30, 100);
+    root.add(eyeL); root.add(eyeR);
 
-  // rim
-  const rimGeo = new THREE.CircleGeometry(260,64);
-  const rimMat = new THREE.MeshBasicMaterial({ color:0x0bbcff, transparent:true, opacity:0.06 });
-  const rimMesh = new THREE.Mesh(rimGeo, rimMat);
-  rimMesh.position.set(0,-60,-260); rimMesh.rotation.x = -0.15; scene.add(rimMesh);
+    // pupil groups (for safe movement)
+    const pupilGeom = new THREE.SphereGeometry(8, 18, 18);
+    const pupilMat = new THREE.MeshStandardMaterial({ color:0x06121a });
+    const gpL = new THREE.Group(); const gpR = new THREE.Group();
+    gpL.position.copy(eyeL.position); gpR.position.copy(eyeR.position);
+    root.add(gpL); root.add(gpR);
+    const pupL = new THREE.Mesh(pupilGeom, pupilMat); const pupR = new THREE.Mesh(pupilGeom, pupilMat);
+    pupL.position.set(0,0,22); pupR.position.set(0,0,22);
+    gpL.add(pupL); gpR.add(pupR);
 
-  // resizing logic
-  function resize(){
-    const rect = container.getBoundingClientRect();
-    const w = Math.max(20, Math.floor(rect.width));
-    const h = Math.max(20, Math.floor(rect.height));
-    renderer.setSize(w, h, false);
-    camera.aspect = w / h; camera.updateProjectionMatrix();
+    // mouth
+    const mouth = new THREE.Mesh(new THREE.TorusGeometry(32,3.0,8,40,Math.PI*0.68), new THREE.MeshStandardMaterial({ color:0x8a4f38 }));
+    mouth.rotation.x = Math.PI*0.48; mouth.position.set(0,-30,95); root.add(mouth);
 
-   if (w < 520) {
-  camera.position.set(0, 0, 600);
-  root.scale.set(0.7, 0.7, 0.7);
-} else if (w < 820) {
-  camera.position.set(0, 0, 580);
-  root.scale.set(0.8, 0.8, 0.8);
-} else if (w < 1080) {
-  camera.position.set(0, 0, 560);
-  root.scale.set(0.9, 0.9, 0.9);
-} else {
-  camera.position.set(0, 0, 550);
-  root.scale.set(1, 1, 1);
-}
+    // neck
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(68,80,70,20), new THREE.MeshStandardMaterial({ color:0xffe1c7 }));
+    neck.position.set(0,-140,0); root.add(neck);
 
-  window.addEventListener('resize', resize, { passive:true });
-  // initial call
-  resize();
+    // renderer resize
+    function resize(){
+      const rect = container.getBoundingClientRect();
+      const w = Math.max(100, Math.floor(rect.width));
+      const h = Math.max(120, Math.floor(rect.height));
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h; camera.updateProjectionMatrix();
 
-  // pointer tracking
-  let pointer = {x:0,y:0, active:false};
-  function onPointerMove(e){
-    pointer.active = true;
-    pointer.x = (e.clientX !== undefined) ? e.clientX : (e.touches && e.touches[0].clientX) || pointer.x;
-    pointer.y = (e.clientY !== undefined) ? e.clientY : (e.touches && e.touches[0].clientY) || pointer.y;
-  }
-  window.addEventListener('pointermove', onPointerMove, {passive:true});
-  window.addEventListener('touchmove', onPointerMove, {passive:true});
+      // responsive camera/scale
+      if(w < 520){
+        camera.position.set(0, 0, 620);
+        root.scale.set(0.68,0.68,0.68);
+      } else if(w < 820){
+        camera.position.set(0, 0, 580);
+        root.scale.set(0.82,0.82,0.82);
+      } else if(w < 1080){
+        camera.position.set(0, 0, 560);
+        root.scale.set(0.92,0.92,0.92);
+      } else {
+        camera.position.set(0, 0, 550);
+        root.scale.set(1,1,1);
+      }
+    }
+    window.addEventListener('resize', resize, { passive:true });
+    resize();
 
-  function getNorm(){
-    const r = container.getBoundingClientRect();
-    const cx = r.left + r.width/2, cy = r.top + r.height/2;
-    const nx = ((pointer.x || cx) - cx) / (r.width/2);
-    const ny = ((pointer.y || cy) - cy) / (r.height/2);
-    return { nx: THREE.MathUtils.clamp(nx, -1,1), ny: THREE.MathUtils.clamp(ny,-1,1) };
-  }
+    // pointer logic
+    let pointer = { x:null, y:null, active:false };
+    function onPointer(e){
+      pointer.active = true;
+      pointer.x = (e.clientX !== undefined) ? e.clientX : (e.touches && e.touches[0].clientX) || pointer.x;
+      pointer.y = (e.clientY !== undefined) ? e.clientY : (e.touches && e.touches[0].clientY) || pointer.y;
+    }
+    window.addEventListener('pointermove', onPointer, { passive:true });
+    window.addEventListener('touchmove', onPointer, { passive:true });
 
-  // animate loop
-  const clock = new THREE.Clock();
-  function animate(){
-    const np = getNorm();
-    const targetY = np.nx * 0.18;
-    const targetX = np.ny * -0.12;
-    head.rotation.y += (targetY - head.rotation.y) * 0.08;
-    head.rotation.x += (targetX - head.rotation.x) * 0.06;
-    hair.rotation.y += (targetY - hair.rotation.y) * 0.06;
-    root.rotation.y += (targetY * 0.04 - root.rotation.y) * 0.06;
+    function getNorm(){
+      const r = container.getBoundingClientRect();
+      const cx = r.left + r.width/2, cy = r.top + r.height/2;
+      const nx = ((pointer.x || cx) - cx) / (r.width/2);
+      const ny = ((pointer.y || cy) - cy) / (r.height/2);
+      return { nx: THREE.MathUtils.clamp(nx, -1, 1), ny: THREE.MathUtils.clamp(ny, -1, 1) };
+    }
 
-    const maxPupil = 6.8;
-    const px = np.nx * maxPupil * 1.3;
-    const py = np.ny * -maxPupil * 0.9;
-    leftGroup.position.x += ((eyeLeft.position.x + px) - leftGroup.position.x) * 0.18;
-    leftGroup.position.y += ((eyeLeft.position.y + py) - leftGroup.position.y) * 0.12;
-    rightGroup.position.x += ((eyeRight.position.x + px) - rightGroup.position.x) * 0.18;
-    rightGroup.position.y += ((eyeRight.position.y + py) - rightGroup.position.y) * 0.12;
+    // animate
+    function animate(){
+      const np = getNorm();
+      // head rotation targets
+      const targetY = np.nx * 0.18;
+      const targetX = np.ny * -0.12;
+      head.rotation.y += (targetY - head.rotation.y) * 0.07;
+      head.rotation.x += (targetX - head.rotation.x) * 0.06;
+      hair.rotation.y += (targetY - hair.rotation.y) * 0.05;
+      root.rotation.y += (targetY * 0.03 - root.rotation.y) * 0.06;
 
-    const t = performance.now() * 0.0012;
-    root.position.y += Math.sin(t) * 0.06;
+      // pupils follow (offset)
+      const maxPupil = 6.2;
+      const px = np.nx * maxPupil * 1.3;
+      const py = np.ny * -maxPupil * 0.9;
+      gpL.position.x += ((eyeL.position.x + px) - gpL.position.x) * 0.18;
+      gpL.position.y += ((eyeL.position.y + py) - gpL.position.y) * 0.12;
+      gpR.position.x += ((eyeR.position.x + px) - gpR.position.x) * 0.18;
+      gpR.position.y += ((eyeR.position.y + py) - gpR.position.y) * 0.12;
 
-    renderer.render(scene, camera);
-    requestAnimationFrame(animate);
-  }
-  animate();
+      // subtle float
+      const t = performance.now() * 0.001;
+      root.position.y = Math.sin(t * 0.8) * 0.6;
 
-  console.log('[avatar] ready');
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+    animate();
 
-  // reset on leave
-  window.addEventListener('pointerleave', ()=>{ pointer.x = container.getBoundingClientRect().left + container.clientWidth/2; pointer.y = container.getBoundingClientRect().top + container.clientHeight/2; pointer.active=false; });
+    console.log('[safe-avatar] ready — canvas appended', renderer.domElement);
+    // show fallback only if no canvas exists (just safe-check)
+    if(!renderer.domElement) fallback.style.display = 'block';
 
-})();
-</script>
+    // safety: reset pointer when leaving
+    window.addEventListener('pointerleave', ()=>{ pointer.x = null; pointer.y = null; pointer.active=false; });
+
+  })();
+  </script>
+</body>
+</html>

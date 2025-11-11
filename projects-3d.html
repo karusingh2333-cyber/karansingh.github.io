@@ -1,122 +1,4 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Interactive 3D Avatar — Portfolio</title>
-
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;500;700&display=swap" rel="stylesheet">
-
-  <style>
-    :root{
-      --bg:#07060a;
-      --muted:#cfd6df;
-    }
-    html,body{height:100%;margin:0;font-family:"Montserrat",system-ui,Arial}
-    body{background:linear-gradient(180deg,#07060a 0%, #0d0d12 100%); color:var(--muted); -webkit-font-smoothing:antialiased;}
-    .wrap{
-      min-height:100vh;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:28px;
-      box-sizing:border-box;
-      gap:28px;
-      flex-direction:column;
-    }
-
-    .stage{
-      width:min(920px,92vw);
-      height:min(760px,76vh);
-      max-height:820px;
-      border-radius:18px;
-      overflow:hidden;
-      position:relative;
-      background: radial-gradient(600px 300px at 50% 10%, rgba(0,180,255,0.06), transparent 20%), linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.12));
-      box-shadow: 0 30px 80px rgba(3,7,18,0.7), inset 0 1px 0 rgba(255,255,255,0.02);
-      display:block;
-    }
-
-    /* overlay UI */
-    .ui {
-      position:absolute;
-      left:20px;
-      top:18px;
-      z-index:4;
-      color:#cfe7ff;
-      font-weight:600;
-      font-size:14px;
-      pointer-events:none;
-      display:flex;
-      gap:12px;
-      align-items:center;
-    }
-    .ui .email{opacity:0.85}
-    .ui .nav{margin-left:auto; font-weight:500; opacity:0.9; pointer-events:auto;}
-    .ui a{color:inherit;text-decoration:none;padding:6px 8px;border-radius:6px;background:transparent;opacity:0.85}
-
-    /* caption */
-    .caption{
-      position:absolute;
-      bottom:14px;
-      left:50%;
-      transform:translateX(-50%);
-      z-index:4;
-      color:rgba(255,255,255,0.7);
-      font-size:13px;
-      background:linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
-      padding:8px 12px;border-radius:999px;
-      backdrop-filter: blur(6px);
-    }
-
-    /* responsive below */
-    @media (max-width:720px){
-      .stage{height:min(68vh,680px);}
-      .ui{left:12px;top:12px; font-size:13px}
-      .caption{font-size:12px}
-    }
-
-    /* helper for footer area below stage */
-    .below{
-      width:min(980px,94vw);
-      display:flex;
-      gap:20px;
-      justify-content:space-between;
-      align-items:center;
-      color:var(--muted);
-      font-size:14px;
-      margin-top:18px;
-    }
-    .btn{
-      background:linear-gradient(90deg,#00b4ff,#3bd5ff);
-      color:#001321;padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:700;
-      box-shadow:0 14px 40px rgba(0,180,255,0.12)
-    }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <div class="stage" id="stage">
-      <div class="ui">
-        <div class="email">example@mail.com</div>
-        <div class="nav"><a href="index.html">HOME</a></div>
-      </div>
-
-      <!-- three.js canvas will be appended here by script -->
-      <div id="canvas-container" style="width:100%;height:100%;"></div>
-
-      <div class="caption">Move your cursor — the avatar follows your face & eyes</div>
-    </div>
-
-    <div class="below">
-      <div>Selected Works — scroll down to see video embeds on the Projects page.</div>
-      <div><a class="btn" href="projects.html">Open Projects</a></div>
-    </div>
-  </div>
-
-  <!-- Three.js from CDN -->
-  <script src="https://unpkg.com/three@0.156.0/build/three.min.js"></script>
-  <script src="https://unpkg.com/three@0.156.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.156.0/build/three.min.js"></script>
 <script>
 (function(){
   console.log('[avatar] init');
@@ -157,7 +39,8 @@
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x07060a);
   const camera = new THREE.PerspectiveCamera(28, 2, 0.1, 2000);
-camera.position.set(0, 0, 550); // pehle 420 tha, ab 550
+camera.position.set(0, 0, 550); // thoda peeche le gaya taaki poora character dikhe
+
 
   // lights
   const hemi = new THREE.HemisphereLight(0xffffff, 0x222244, 0.9);
@@ -236,28 +119,20 @@ camera.position.set(0, 0, 550); // pehle 420 tha, ab 550
     renderer.setSize(w, h, false);
     camera.aspect = w / h; camera.updateProjectionMatrix();
 
-    function resize(){
-  const rect = container.getBoundingClientRect();
-  const w = Math.max(20, Math.floor(rect.width));
-  const h = Math.max(20, Math.floor(rect.height));
-  renderer.setSize(w, h, false);
-  camera.aspect = w / h; 
-  camera.updateProjectionMatrix();
-
-  if(w < 520){
-    camera.position.set(0, 0, 600);
-    root.scale.set(0.7, 0.7, 0.7);
-  } else if(w < 820){
-    camera.position.set(0, 0, 580);
-    root.scale.set(0.8, 0.8, 0.8);
-  } else if(w < 1080){
-    camera.position.set(0, 0, 560);
-    root.scale.set(0.9, 0.9, 0.9);
-  } else {
-    camera.position.set(0, 0, 550);
-    root.scale.set(1, 1, 1);
-  }
+   if (w < 520) {
+  camera.position.set(0, 0, 600);
+  root.scale.set(0.7, 0.7, 0.7);
+} else if (w < 820) {
+  camera.position.set(0, 0, 580);
+  root.scale.set(0.8, 0.8, 0.8);
+} else if (w < 1080) {
+  camera.position.set(0, 0, 560);
+  root.scale.set(0.9, 0.9, 0.9);
+} else {
+  camera.position.set(0, 0, 550);
+  root.scale.set(1, 1, 1);
 }
+
   window.addEventListener('resize', resize, { passive:true });
   // initial call
   resize();
@@ -314,6 +189,3 @@ camera.position.set(0, 0, 550); // pehle 420 tha, ab 550
 
 })();
 </script>
-
-</body>
-</html>
